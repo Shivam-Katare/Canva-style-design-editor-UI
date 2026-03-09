@@ -1,5 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
-import { VeltPresence, useCommentUtils } from "@veltdev/react";
+import {
+  VeltPresence,
+  VeltCommentTool,
+  VeltSidebarButton,
+  VeltNotificationsTool,
+} from "@veltdev/react";
 import {
   Undo2,
   Redo2,
@@ -8,7 +13,6 @@ import {
   Download,
   ChevronDown,
   Check,
-  MessageSquare,
 } from "lucide-react";
 import { useEditorStore } from "../store/editorStore";
 import { useFabric } from "../contexts/FabricContext";
@@ -37,11 +41,8 @@ export const TopBar: React.FC<TopBarProps> = ({
     undo: storeUndo,
     redo: storeRedo,
     showToast,
-    isCommentMode,
-    setIsCommentMode,
   } = useEditorStore();
   const { canvasRef } = useFabric();
-  const commentUtils = useCommentUtils();
 
   const [sizeOpen, setSizeOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
@@ -63,16 +64,6 @@ export const TopBar: React.FC<TopBarProps> = ({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
-
-  const toggleCommentMode = () => {
-    if (isCommentMode) {
-      commentUtils?.disableCommentMode();
-      setIsCommentMode(false);
-    } else {
-      commentUtils?.enableCommentMode();
-      setIsCommentMode(true);
-    }
-  };
 
   const handleUndo = () => {
     const entry = storeUndo();
@@ -106,31 +97,33 @@ export const TopBar: React.FC<TopBarProps> = ({
 
   return (
     <header
-      className={`h-12 px-4 flex items-center justify-between shrink-0 border-b ${bg} ${border} ${text} z-50 relative`}
+      className={`h-12 px-2 sm:px-4 flex items-center justify-between shrink-0 border-b ${bg} ${border} ${text} z-50 relative gap-1 sm:gap-2`}
       style={{ minHeight: 48 }}
     >
       {/* ── Logo ─────────────────────────────────── */}
-      <div className="flex items-center gap-2 w-44">
+      <div className="flex items-center gap-2 shrink-0">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <rect width="24" height="24" rx="6" fill="#ff6b4a" />
           <path d="M6 7h8a3 3 0 0 1 0 6H6V7Z" fill="white" opacity="0.9" />
           <path d="M6 13h5v4H6v-4Z" fill="white" opacity="0.6" />
         </svg>
-        <span className="font-bold text-base tracking-tight text-[#ff6b4a]">
+        <span className="font-bold text-base tracking-tight text-[#ff6b4a] hidden sm:block">
           Pixframe
         </span>
       </div>
 
       {/* ── Canvas Size Dropdown ──────────────────── */}
-      <div ref={dropRef} className="relative">
+      <div ref={dropRef} className="relative min-w-0">
         <button
           onClick={() => setSizeOpen((v) => !v)}
-          className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border ${border} ${hov} transition-colors`}
+          className={`flex items-center gap-1.5 text-sm px-2 sm:px-3 py-1.5 rounded-lg border ${border} ${hov} transition-colors`}
         >
-          <span className={`${muted} text-xs font-medium`}>
+          <span
+            className={`${muted} text-xs font-medium hidden md:block truncate max-w-[100px]`}
+          >
             {canvasSize.name}
           </span>
-          <span className="text-xs font-mono opacity-60">
+          <span className="text-xs font-mono opacity-60 whitespace-nowrap">
             {canvasSize.width}×{canvasSize.height}
           </span>
           <ChevronDown size={12} className={muted} />
@@ -202,51 +195,47 @@ export const TopBar: React.FC<TopBarProps> = ({
       </div>
 
       {/* ── Right Controls ────────────────────────── */}
-      <div className="flex items-center gap-1 justify-end">
+      <div className="flex items-center gap-0.5 sm:gap-1 justify-end shrink-0">
         <button
           onClick={handleUndo}
           disabled={!canUndo}
           title="Undo (Ctrl+Z)"
-          className={`p-2 rounded-lg transition-all ${canUndo ? `${hov} ${text}` : "opacity-30 cursor-not-allowed text-[#6b6b7a]"}`}
+          className={`p-1.5 sm:p-2 rounded-lg transition-all ${canUndo ? `${hov} ${text}` : "opacity-30 cursor-not-allowed text-[#6b6b7a]"}`}
         >
-          <Undo2 size={16} />
+          <Undo2 size={15} />
         </button>
         <button
           onClick={handleRedo}
           disabled={!canRedo}
           title="Redo (Ctrl+Y)"
-          className={`p-2 rounded-lg transition-all ${canRedo ? `${hov} ${text}` : "opacity-30 cursor-not-allowed text-[#6b6b7a]"}`}
+          className={`p-1.5 sm:p-2 rounded-lg transition-all ${canRedo ? `${hov} ${text}` : "opacity-30 cursor-not-allowed text-[#6b6b7a]"}`}
         >
-          <Redo2 size={16} />
+          <Redo2 size={15} />
         </button>
 
         <div
-          className={`w-px h-5 ${dark ? "bg-[#242430]" : "bg-[#e2e2ea]"} mx-1`}
+          className={`w-px h-5 ${dark ? "bg-[#242430]" : "bg-[#e2e2ea]"} mx-0.5 sm:mx-1`}
         />
 
-        {/* Comment mode toggle */}
-        <button
-          onClick={toggleCommentMode}
-          title={isCommentMode ? "Disable comment mode" : "Enable comment mode"}
-          className={`p-2 rounded-lg transition-all ${
-            isCommentMode
-              ? "bg-[#ff6b4a]/20 text-[#ff6b4a] ring-1 ring-[#ff6b4a]/50"
-              : `${hov} ${text}`
-          }`}
-        >
-          <MessageSquare size={16} />
-        </button>
+        {/* Velt Comment Tool */}
+        <VeltCommentTool shadowDom={false} />
+
+        {/* Velt Comments Sidebar Button */}
+        <VeltSidebarButton shadowDom={false} />
+
+        {/* Velt Notifications Tool */}
+        <VeltNotificationsTool shadowDom={false} />
 
         <button
           onClick={() => setTheme(dark ? "light" : "dark")}
           title="Toggle theme"
-          className={`p-2 rounded-lg transition-all ${hov} ${text}`}
+          className={`p-1.5 sm:p-2 rounded-lg transition-all ${hov} ${text}`}
         >
-          {dark ? <Sun size={16} /> : <Moon size={16} />}
+          {dark ? <Sun size={15} /> : <Moon size={15} />}
         </button>
 
-        {/* Velt Presence Avatars */}
-        <div className="mx-1">
+        {/* Velt Presence Avatars — hidden on very small screens */}
+        <div className="mx-0.5 sm:mx-1 hidden xs:block sm:block">
           <VeltPresence />
         </div>
 
@@ -255,7 +244,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           <button
             onClick={() => setUserOpen((v) => !v)}
             title="Switch user"
-            className={`flex items-center gap-1.5 p-1 pr-2 rounded-lg border ${border} ${hov} transition-colors`}
+            className={`flex items-center gap-1 sm:gap-1.5 p-1 sm:pr-2 rounded-lg border ${border} ${hov} transition-colors`}
           >
             <img
               src={currentUser.photoUrl}
@@ -267,11 +256,11 @@ export const TopBar: React.FC<TopBarProps> = ({
               }}
             />
             <span
-              className={`text-xs font-medium max-w-[64px] truncate ${text}`}
+              className={`text-xs font-medium max-w-[56px] truncate ${text} hidden sm:block`}
             >
               {currentUser.name.split(" ")[0]}
             </span>
-            <ChevronDown size={10} className={muted} />
+            <ChevronDown size={10} className={`${muted} hidden sm:block`} />
           </button>
 
           {userOpen && (
@@ -322,13 +311,13 @@ export const TopBar: React.FC<TopBarProps> = ({
         <button
           onClick={() => setExportModalOpen(true)}
           title="Export (Ctrl+E)"
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white
+          className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-2 rounded-lg text-sm font-semibold text-white
             bg-gradient-to-r from-[#ff6b4a] to-[#e8445a]
             hover:scale-[1.02] hover:brightness-110 active:scale-[0.98]
             transition-all duration-150 shadow-lg shadow-[#ff6b4a]/30"
         >
-          <Download size={15} />
-          Export
+          <Download size={14} />
+          <span className="hidden sm:inline">Export</span>
         </button>
       </div>
     </header>

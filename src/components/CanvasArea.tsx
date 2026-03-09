@@ -1,9 +1,10 @@
-﻿import React, { useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useRef, useCallback } from "react";
 import { Canvas, FabricImage } from "fabric";
 import { VeltCursor } from "@veltdev/react";
 import { ZoomIn, ZoomOut, Maximize } from "lucide-react";
 import { useEditorStore } from "../store/editorStore";
 import { useFabric } from "../contexts/FabricContext";
+import { useCollaborativeEditor } from "../hooks/useCollaborativeEditor";
 
 export const CanvasArea: React.FC = () => {
   const {
@@ -23,7 +24,18 @@ export const CanvasArea: React.FC = () => {
     setExportModalOpen,
     addLayer,
   } = useEditorStore();
-  const { canvasRef } = useFabric();
+  const {
+    canvasRef,
+    isRemoteUpdate,
+    pushCanvasStateRef,
+    pushCanvasStateImmediateRef,
+  } = useFabric();
+  const { pushCanvasState, pushCanvasStateImmediate, applyCurrentValue } =
+    useCollaborativeEditor();
+  // Wire into context so BackgroundPanel / LayersPanel can push CRDT without
+  // needing their own hook instance (which would break echo-suppression).
+  pushCanvasStateRef.current = pushCanvasState;
+  pushCanvasStateImmediateRef.current = pushCanvasStateImmediate;
   const elRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -47,7 +59,7 @@ export const CanvasArea: React.FC = () => {
     });
     canvasRef.current = canvas;
 
-    // Selection events â†’ sync selectedLayerId
+    // Selection events → sync selectedLayerId
     canvas.on("selection:created", (e) => {
       const obj = e.selected?.[0] as any;
       if (obj?.data?.id) setSelectedLayerId(obj.data.id);
@@ -58,15 +70,33 @@ export const CanvasArea: React.FC = () => {
     });
     canvas.on("selection:cleared", () => setSelectedLayerId(null));
 
-    // Object modified â†’ push history
+    // Object modified ? push history + CRDT
     canvas.on("object:modified", () => {
-      const json = JSON.stringify((canvas as any).toJSON(["data"]));
+      if (isRemoteUpdate.current) return;
+      const json = JSON.stringify((canvas as any).toObject(["data"]));
       pushHistory(json);
+      pushCanvasState(json);
+    });
+
+    // Object added / removed ? push CRDT (layers read from store at flush time)
+    canvas.on("object:added", () => {
+      if (isRemoteUpdate.current) return;
+      const json = JSON.stringify((canvas as any).toObject(["data"]));
+      pushCanvasState(json);
+    });
+
+    canvas.on("object:removed", () => {
+      if (isRemoteUpdate.current) return;
+      const json = JSON.stringify((canvas as any).toObject(["data"]));
+      pushCanvasState(json);
     });
 
     // Push initial history
-    const json = JSON.stringify((canvas as any).toJSON(["data"]));
+    const json = JSON.stringify((canvas as any).toObject(["data"]));
     pushHistory(json);
+
+    // Apply any existing CRDT state (late-joiner: another peer already edited)
+    applyCurrentValue();
 
     // Apply zoom
     applyZoom(canvas, zoom, canvasSize.width, canvasSize.height);
@@ -95,7 +125,11 @@ export const CanvasArea: React.FC = () => {
     });
     canvas.renderAll();
     applyZoom(canvas, zoom, canvasSize.width, canvasSize.height);
-    showToast(`Canvas resized to ${canvasSize.width}—${canvasSize.height}`);
+    showToast(`Canvas resized to ${canvasSize.width}�${canvasSize.height}`); // Push new canvas size to CRDT for remote peers (skip when remote triggered this)
+    if (!isRemoteUpdate.current) {
+      const json = JSON.stringify((canvas as any).toObject(["data"]));
+      pushCanvasState(json);
+    }
   }, [canvasSize.width, canvasSize.height]);
 
   // Sync zoom changes
@@ -107,17 +141,27 @@ export const CanvasArea: React.FC = () => {
 
   // Sync layer visibility with fabric, and purge any canvas objects whose
   // Zustand layer was removed (safety net for post-user-switch drift).
+  // Skip when a remote snapshot is being applied -- applySnapshot already
+  // handles visibility and object restoration correctly.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    // Do not interfere with an in-progress remote applySnapshot.
+    // isRemoteUpdate stays true for two rAF frames after loadFromJSON,
+    // so this effect is safely excluded during and just after remote loads.
+    if (isRemoteUpdate.current) return;
 
     const layerIds = new Set(layers.map((l) => l.id));
 
-    // Remove canvas objects that no longer have a matching layer entry
-    const toRemove = canvas
-      .getObjects()
-      .filter((o: any) => o.data?.id && !layerIds.has(o.data.id));
-    toRemove.forEach((o) => canvas.remove(o));
+    // Only purge if we actually have layers -- never purge when layers is
+    // empty (e.g. momentarily during hydration or user-switch) as that
+    // would wipe the whole canvas.
+    if (layerIds.size > 0) {
+      const toRemove = canvas
+        .getObjects()
+        .filter((o: any) => o.data?.id && !layerIds.has(o.data.id));
+      toRemove.forEach((o) => canvas.remove(o));
+    }
 
     // Sync visibility for remaining objects
     layers.forEach((layer) => {
@@ -130,7 +174,7 @@ export const CanvasArea: React.FC = () => {
     canvas.renderAll();
   }, [layers]);
 
-  // â”€â”€ Selection sync: when layerMeta selection changes, select on canvas
+  // ── Selection sync: when layerMeta selection changes, select on canvas
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -210,8 +254,9 @@ export const CanvasArea: React.FC = () => {
               name: "Copy",
               visible: true,
             });
-            const json = JSON.stringify((canvas as any).toJSON(["data"]));
+            const json = JSON.stringify((canvas as any).toObject(["data"]));
             pushHistory(json);
+            pushCanvasStateImmediateRef.current?.(json);
           });
         }
       }
@@ -221,8 +266,9 @@ export const CanvasArea: React.FC = () => {
           canvas.remove(active);
           canvas.renderAll();
           removeLayer(active.data.id);
-          const json = JSON.stringify((canvas as any).toJSON(["data"]));
+          const json = JSON.stringify((canvas as any).toObject(["data"]));
           pushHistory(json);
+          pushCanvasStateImmediateRef.current?.(json);
         }
       }
       if (e.key === "Escape") {
@@ -277,8 +323,13 @@ export const CanvasArea: React.FC = () => {
       f.type.startsWith("image/"),
     );
     for (const file of files) {
-      const url = URL.createObjectURL(file);
-      const img = await FabricImage.fromURL(url, { crossOrigin: "anonymous" });
+      // Convert to data: URI so the src is portable across windows/users
+      // (blob: URLs are scoped to the creating browsing context and would
+      //  break for collaborative peers receiving the CRDT snapshot)
+      const dataUrl = await fileToDataUrl(file);
+      const img = await FabricImage.fromURL(dataUrl, {
+        crossOrigin: "anonymous",
+      });
       const rect = (e.target as HTMLElement).getBoundingClientRect();
       const x = (e.clientX - rect.left) / zoom;
       const y = (e.clientY - rect.top) / zoom;
@@ -299,9 +350,9 @@ export const CanvasArea: React.FC = () => {
         name: file.name.replace(/\.[^.]+$/, ""),
         visible: true,
       });
-      const json = JSON.stringify((canvas as any).toJSON(["data"]));
+      const json = JSON.stringify((canvas as any).toObject(["data"]));
       pushHistory(json);
-      URL.revokeObjectURL(url);
+      pushCanvasState(json);
     }
   };
 
@@ -382,4 +433,13 @@ export const CanvasArea: React.FC = () => {
 function applyZoom(canvas: Canvas, zoom: number, logW: number, logH: number) {
   canvas.setZoom(zoom);
   canvas.setDimensions({ width: logW * zoom, height: logH * zoom });
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }

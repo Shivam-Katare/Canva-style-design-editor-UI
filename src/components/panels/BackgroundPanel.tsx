@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { HexColorPicker } from "react-colorful";
 import { Gradient, Pattern, FabricImage } from "fabric";
 import { useEditorStore } from "../../store/editorStore";
@@ -141,14 +141,14 @@ const GRADIENTS = [
 ];
 
 const GRADIENT_ANGLES = [
-  { label: "â†’", deg: 90 },
-  { label: "â†—", deg: 45 },
-  { label: "â†‘", deg: 0 },
-  { label: "â†–", deg: 315 },
-  { label: "â†", deg: 270 },
-  { label: "â†™", deg: 225 },
-  { label: "â†“", deg: 180 },
-  { label: "â†˜", deg: 135 },
+  { label: "?", deg: 90 },
+  { label: "?", deg: 45 },
+  { label: "?", deg: 0 },
+  { label: "?", deg: 315 },
+  { label: "?", deg: 270 },
+  { label: "?", deg: 225 },
+  { label: "?", deg: 180 },
+  { label: "?", deg: 135 },
 ];
 
 const PATTERNS = [
@@ -166,7 +166,7 @@ type BgTab = "solid" | "gradient" | "image" | "pattern";
 
 export const BackgroundPanel: React.FC = () => {
   const { theme, pushHistory, showToast } = useEditorStore();
-  const { canvasRef } = useFabric();
+  const { canvasRef, pushCanvasStateRef } = useFabric();
   const [tab, setTab] = useState<BgTab>("solid");
   const [solidColor, setSolidColor] = useState("#ffffff");
   const [showPicker, setShowPicker] = useState(false);
@@ -192,8 +192,10 @@ export const BackgroundPanel: React.FC = () => {
   const saveHistory = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const json = JSON.stringify((canvas as any).toJSON(["data"]));
+    const json = JSON.stringify((canvas as any).toObject(["data"]));
     pushHistory(json);
+    // Sync background change to all peers
+    pushCanvasStateRef.current?.(json);
   };
 
   const clearBgImage = () => {
@@ -339,7 +341,7 @@ export const BackgroundPanel: React.FC = () => {
 
       {/* Gradient */}
       {tab === "gradient" && (
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-x-hidden">
           {/* Preset gradients */}
           <div className="grid grid-cols-3 gap-2">
             {GRADIENTS.map((g) => (
@@ -367,28 +369,37 @@ export const BackgroundPanel: React.FC = () => {
           >
             Custom Gradient
           </p>
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <p className={`text-xs ${muted} mb-1`}>Start</p>
+
+          {/* Start color */}
+          <div className="space-y-1">
+            <p className={`text-xs ${muted}`}>Start</p>
+            <div className="w-full overflow-hidden">
               <HexColorPicker
                 color={gradStart}
                 onChange={(c) => {
                   setGradStart(c);
                   applyGradient(c, gradEnd, gradAngle);
                 }}
+                style={{ width: "100%" }}
               />
             </div>
-            <div className="flex-1">
-              <p className={`text-xs ${muted} mb-1`}>End</p>
+          </div>
+
+          {/* End color */}
+          <div className="space-y-1">
+            <p className={`text-xs ${muted}`}>End</p>
+            <div className="w-full overflow-hidden">
               <HexColorPicker
                 color={gradEnd}
                 onChange={(c) => {
                   setGradEnd(c);
                   applyGradient(gradStart, c, gradAngle);
                 }}
+                style={{ width: "100%" }}
               />
             </div>
           </div>
+
           {/* Angle presets */}
           <div className="grid grid-cols-8 gap-1">
             {GRADIENT_ANGLES.map((a) => (
@@ -398,7 +409,7 @@ export const BackgroundPanel: React.FC = () => {
                   setGradAngle(a.deg);
                   applyGradient(gradStart, gradEnd, a.deg);
                 }}
-                className={`aspect-square rounded text-xs flex items-center justify-center transition-all
+                className={`aspect-square rounded text-sm flex items-center justify-center transition-all
                   ${gradAngle === a.deg ? "bg-[#ff6b4a] text-white" : `${hov} ${muted}`}`}
               >
                 {a.label}
@@ -424,7 +435,7 @@ export const BackgroundPanel: React.FC = () => {
                 className="absolute inset-0 w-full h-full object-cover opacity-60"
               />
             ) : null}
-            <span className={`text-3xl ${muted} relative`}>🖼️</span>
+            <span className={`text-3xl ${muted} relative`}>???</span>
             <span className={`text-xs ${muted} relative`}>
               {bgImageThumb ? "Click to change" : "Click to upload"}
             </span>
@@ -449,8 +460,9 @@ export const BackgroundPanel: React.FC = () => {
                   (canvas as any).backgroundImage = img;
                   canvas.renderAll();
                   setBgImageThumb(dataUrl);
-                  const json = JSON.stringify((canvas as any).toJSON(["data"]));
+                  const json = JSON.stringify((canvas as any).toObject(["data"]));
                   pushHistory(json);
+                  pushCanvasStateRef.current?.(json);
                   showToast("Background image set");
                 };
                 reader.readAsDataURL(file);
@@ -478,14 +490,14 @@ export const BackgroundPanel: React.FC = () => {
                 <span className="text-base">
                   {
                     {
-                      dots: "●",
-                      grid: "⊞",
-                      diagonal: "╱",
-                      crosshatch: "⊠",
-                      waves: "∿",
-                      triangles: "▲",
-                      hexagons: "⬡",
-                      noise: "▒",
+                      dots: "?",
+                      grid: "?",
+                      diagonal: "?",
+                      crosshatch: "?",
+                      waves: "?",
+                      triangles: "?",
+                      hexagons: "?",
+                      noise: "�",
                     }[p.id]
                   }
                 </span>

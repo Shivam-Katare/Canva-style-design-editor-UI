@@ -3,7 +3,7 @@ import {
   VeltProvider,
   useVeltClient,
   VeltComments,
-  useCommentUtils,
+  VeltCommentsSidebar,
 } from "@veltdev/react";
 import { FabricProvider } from "./contexts/FabricContext";
 import { useEditorStore } from "./store/editorStore";
@@ -40,8 +40,7 @@ function AppContent({
   onSwitchUser: (user: User) => void;
 }) {
   const { client } = useVeltClient();
-  const commentUtils = useCommentUtils();
-  const { theme, setTheme, setIsCommentMode } = useEditorStore();
+  const { theme, setTheme } = useEditorStore();
 
   useEffect(() => {
     // Apply dark theme class on mount
@@ -53,11 +52,6 @@ function AppContent({
     const init = async () => {
       if (!client || !currentUser) return;
       try {
-        // Always reset comment mode before re-identifying so stale Velt
-        // overlays are removed and isCommentMode doesn't block canvas ops.
-        commentUtils?.disableCommentMode();
-        setIsCommentMode(false);
-
         await client.identify(currentUser);
         await client.setDocument("pixframe-collaborative-canvas", {
           documentName: "Pixframe Design",
@@ -70,6 +64,12 @@ function AppContent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, currentUser]);
 
+  // Sync Velt components with the app's dark/light theme
+  useEffect(() => {
+    if (!client) return;
+    client.setDarkMode(theme === "dark");
+  }, [client, theme]);
+
   return (
     <div
       className={`w-full h-screen flex flex-col overflow-hidden select-none ${
@@ -77,7 +77,8 @@ function AppContent({
       }`}
     >
       {/* Velt comment pins render over the whole app */}
-      <VeltComments shadowDom={false} />
+      <VeltComments shadowDom={false}/>
+      <VeltCommentsSidebar shadowDom={false} />
 
       <TopBar
         currentUser={currentUser}

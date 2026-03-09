@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { FabricImage } from "fabric";
 import { useEditorStore } from "../../store/editorStore";
 import { useFabric } from "../../contexts/FabricContext";
@@ -69,7 +69,7 @@ export const CropPanel: React.FC = () => {
     });
 
     canvas.renderAll();
-    const json = JSON.stringify((canvas as any).toJSON(["data"]));
+    const json = JSON.stringify((canvas as any).toObject(["data"]));
     pushHistory(json);
     showToast("Crop applied");
   };
@@ -84,7 +84,7 @@ export const CropPanel: React.FC = () => {
     <div className="p-4 space-y-5">
       {!hasImage ? (
         <div className={`text-center py-8 space-y-2`}>
-          <div className="text-4xl">✂️</div>
+          <div className="text-4xl">??</div>
           <p className={`text-sm font-medium ${muted}`}>
             Select an image layer
           </p>

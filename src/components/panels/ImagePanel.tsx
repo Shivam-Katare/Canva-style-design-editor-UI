@@ -1,4 +1,4 @@
-﻿import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState, useCallback } from "react";
 import { Upload, FlipHorizontal, FlipVertical, RefreshCw } from "lucide-react";
 import { FabricImage } from "fabric";
 import { useEditorStore } from "../../store/editorStore";
@@ -9,7 +9,8 @@ const ACCEPTED = "image/jpeg,image/png,image/webp,image/svg+xml,.heic,.heif";
 export const ImagePanel: React.FC = () => {
   const { theme, selectedLayerId, pushHistory, showToast, addLayer } =
     useEditorStore();
-  const { canvasRef } = useFabric();
+  const { canvasRef, pushCanvasStateRef, pushCanvasStateImmediateRef } =
+    useFabric();
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [opacity, setOpacity] = useState(100);
@@ -79,11 +80,14 @@ export const ImagePanel: React.FC = () => {
         visible: true,
       });
 
-      const json = JSON.stringify((canvas as any).toJSON(["data"]));
+      const json = JSON.stringify((canvas as any).toObject(["data"]));
       pushHistory(json);
-      showToast(`Image added Â· ${file.name}`);
+      // Push immediately after addLayer() so the CRDT snapshot includes the
+      // new layer metadata. This also cancels the debounced push from object:added.
+      pushCanvasStateImmediateRef.current?.(json);
+      showToast(`Image added · ${file.name}`);
     },
-    [canvasRef, addLayer, pushHistory, showToast],
+    [canvasRef, addLayer, pushHistory, showToast, pushCanvasStateImmediateRef],
   );
 
   const handleFiles = (files: FileList | null) => {
@@ -113,7 +117,7 @@ export const ImagePanel: React.FC = () => {
     if (axis === "X") selectedObj.set("flipX", !selectedObj.flipX);
     else selectedObj.set("flipY", !selectedObj.flipY);
     canvasRef.current!.renderAll();
-    const json = JSON.stringify((canvasRef.current as any).toJSON(["data"]));
+    const json = JSON.stringify((canvasRef.current as any).toObject(["data"]));
     pushHistory(json);
   };
 
@@ -219,7 +223,7 @@ export const ImagePanel: React.FC = () => {
                 (selectedObj as FabricImage).setSrc(url).then(() => {
                   canvasRef.current!.renderAll();
                   const json = JSON.stringify(
-                    (canvasRef.current as any).toJSON(["data"]),
+                    (canvasRef.current as any).toObject(["data"]),
                   );
                   pushHistory(json);
                 });

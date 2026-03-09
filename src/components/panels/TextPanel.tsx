@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { IText } from "fabric";
 import { HexColorPicker } from "react-colorful";
 import {
@@ -29,7 +29,8 @@ const WEIGHT_LABELS: Record<string, string> = {
 export const TextPanel: React.FC = () => {
   const { theme, selectedLayerId, addLayer, pushHistory, showToast } =
     useEditorStore();
-  const { canvasRef } = useFabric();
+  const { canvasRef, pushCanvasStateRef, pushCanvasStateImmediateRef } =
+    useFabric();
 
   const [font, setFont] = useState("Inter");
   const [size, setSize] = useState(48);
@@ -95,7 +96,7 @@ export const TextPanel: React.FC = () => {
     if (!obj) return;
     obj.set(props as any);
     canvasRef.current!.renderAll();
-    const json = JSON.stringify((canvasRef.current as any).toJSON(["data"]));
+    const json = JSON.stringify((canvasRef.current as any).toObject(["data"]));
     pushHistory(json);
   };
 
@@ -123,8 +124,9 @@ export const TextPanel: React.FC = () => {
     canvas.setActiveObject(text);
     canvas.renderAll();
     addLayer({ id, type: "text", name: "Text Layer", visible: true });
-    const json = JSON.stringify((canvas as any).toJSON(["data"]));
+    const json = JSON.stringify((canvas as any).toObject(["data"]));
     pushHistory(json);
+    pushCanvasStateImmediateRef.current?.(json);
     showToast("Text added");
   };
 

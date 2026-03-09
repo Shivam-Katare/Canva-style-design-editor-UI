@@ -24,6 +24,35 @@ body,
   font-family: "Inter", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Theme Configuration */
+
+/* Border Radius */
+--velt-border-radius-2xs: 0.188rem;
+--velt-border-radius-xs: 0.375rem;
+--velt-border-radius-sm: 0.750rem;
+--velt-border-radius-md: 1.125rem;
+--velt-border-radius-lg: 1.500rem;
+--velt-border-radius-xl: 1.875rem;
+--velt-border-radius-2xl: 2.250rem;
+--velt-border-radius-3xl: 3.000rem;
+--velt-border-radius-full: 7.500rem;
+
+/* Light Mode Accent Colors */
+--velt-light-mode-accent: #ff6b4a;
+--velt-light-mode-accent-text: #ff6b4a;
+--velt-light-mode-accent-hover: #cc3817;
+--velt-light-mode-accent-light: #fff8f6;
+--velt-light-mode-accent-transparent: rgba(255, 107, 74, 0.08);
+
+/* Dark Mode Accent Colors */
+--velt-dark-mode-accent: #ff6b4a;
+--velt-dark-mode-accent-text: #fef2ef;
+--velt-dark-mode-accent-hover: #cc3817;
+--velt-dark-mode-accent-light: #fff8f6;
+--velt-dark-mode-accent-transparent: rgba(255, 107, 74, 0.08);
+
+
 }
 
 /* ── Scrollbar ────────────────────────────────────────────── */

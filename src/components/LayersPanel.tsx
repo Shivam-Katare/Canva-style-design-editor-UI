@@ -22,6 +22,8 @@ import {
   Type,
   Image,
   Palette,
+  Layers,
+  ChevronRight,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEditorStore } from "../store/editorStore";
@@ -171,7 +173,13 @@ export const LayersPanel: React.FC = () => {
     pushHistory,
     showToast,
   } = useEditorStore();
-  const { canvasRef } = useFabric();
+  const { canvasRef, pushCanvasStateRef, pushCanvasStateImmediateRef } =
+    useFabric();
+
+  // Default closed on small screens, open on wider screens
+  const [isOpen, setIsOpen] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth >= 768 : true,
+  );
 
   const dark = theme === "dark";
   const border = dark ? "border-[#242430]" : "border-[#e2e2ea]";
@@ -205,6 +213,8 @@ export const LayersPanel: React.FC = () => {
         if (obj) (canvas as any).moveObjectTo(obj, i);
       });
       canvas.renderAll();
+      const reorderJson = JSON.stringify((canvas as any).toObject(["data"]));
+      pushCanvasStateRef.current?.(reorderJson);
     },
     [layers, reorderLayers, canvasRef],
   );
@@ -230,6 +240,10 @@ export const LayersPanel: React.FC = () => {
       obj.set("visible", newVisible);
       canvas.renderAll();
     }
+    const visJson = JSON.stringify((canvas as any).toObject(["data"]));
+    // Use immediate push so the echo-suppression ref is set synchronously,
+    // preventing any in-flight remote snapshot from reverting the toggle.
+    pushCanvasStateImmediateRef.current?.(visJson);
   };
 
   const handleDelete = (id: string) => {
@@ -243,71 +257,110 @@ export const LayersPanel: React.FC = () => {
     }
     removeLayer(id);
     const json = JSON.stringify(
-      (canvasRef.current as any)?.toJSON(["data"]) ?? {},
+      (canvasRef.current as any)?.toObject(["data"]) ?? {},
     );
     pushHistory(json);
+    // Immediate push so the deletion is reflected in CRDT synchronously and
+    // cannot be undone by a remote echo arriving within the debounce window.
+    pushCanvasStateImmediateRef.current?.(json);
     showToast("Layer deleted");
   };
 
   const handleRename = (id: string, name: string) => {
     updateLayer(id, { name });
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const renameJson = JSON.stringify((canvas as any).toObject(["data"]));
+    pushCanvasStateRef.current?.(renameJson);
   };
 
   return (
-    <div
-      className={`w-[240px] h-full flex flex-col shrink-0 border-l ${bg} ${border} ${text}`}
-      style={{ minWidth: 240 }}
-    >
-      {/* Header */}
-      <div
-        className={`px-4 py-3 border-b ${border} shrink-0 flex items-center justify-between`}
-      >
-        <span className="text-sm font-semibold">Layers</span>
-        <span className={`text-xs ${muted} font-mono`}>{layers.length}</span>
-      </div>
+    <div className="relative flex shrink-0">
+      {/* ── Collapsed toggle tab (always visible when closed) ─── */}
+      {!isOpen && (
+        <button
+          onClick={() => setIsOpen(true)}
+          title="Show Layers"
+          className={`flex flex-col items-center justify-center gap-1 w-10 h-full border-l
+            ${bg} ${border} ${text} transition-colors
+            hover:bg-[#ff6b4a]/10 hover:text-[#ff6b4a]`}
+        >
+          <Layers size={15} />
+          <ChevronRight size={11} className={muted} />
+        </button>
+      )}
 
-      {/* Layer list */}
-      <div className="flex-1 overflow-y-auto py-2">
-        {layers.length === 0 ? (
+      {/* ── Full panel ─────────────────────────────────────────── */}
+      {isOpen && (
+        <div
+          className={`w-[240px] max-w-[240px] h-full flex flex-col shrink-0 border-l ${bg} ${border} ${text}`}
+        >
+          {/* Header */}
           <div
-            className={`flex flex-col items-center justify-center h-32 gap-2 ${muted} text-xs text-center px-4`}
+            className={`px-4 py-3 border-b ${border} shrink-0 flex items-center justify-between`}
           >
-            <span className="text-2xl opacity-40">⊙</span>
-            <span>No layers yet. Add an image or text to get started.</span>
+            <div className="flex items-center gap-2">
+              <Layers size={14} className="text-[#ff6b4a]" />
+              <span className="text-sm font-semibold">Layers</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={`text-xs ${muted} font-mono`}>
+                {layers.length}
+              </span>
+              <button
+                onClick={() => setIsOpen(false)}
+                title="Hide Layers"
+                className={`w-6 h-6 flex items-center justify-center rounded transition-colors ${muted} hover:bg-[#ff6b4a]/10 hover:text-[#ff6b4a]`}
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
           </div>
-        ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={layers.map((l) => l.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              {layers.map((layer) => (
-                <LayerRow
-                  key={layer.id}
-                  layer={layer}
-                  isSelected={selectedLayerId === layer.id}
-                  onSelect={() => handleSelect(layer.id)}
-                  onToggleVisibility={() => handleToggleVisibility(layer)}
-                  onDelete={() => handleDelete(layer.id)}
-                  onRename={(name) => handleRename(layer.id, name)}
-                  dark={dark}
-                />
-              ))}
-            </SortableContext>
-          </DndContext>
-        )}
-      </div>
 
-      {/* Footer hint */}
-      <div className={`px-4 py-2 border-t ${border} shrink-0`}>
-        <p className={`text-[10px] ${muted} text-center`}>
-          Top = Front · Drag to reorder · Double-click to rename
-        </p>
-      </div>
+          {/* Layer list */}
+          <div className="flex-1 overflow-y-auto py-2">
+            {layers.length === 0 ? (
+              <div
+                className={`flex flex-col items-center justify-center h-32 gap-2 ${muted} text-xs text-center px-4`}
+              >
+                <span className="text-2xl opacity-40">⊙</span>
+                <span>No layers yet. Add an image or text to get started.</span>
+              </div>
+            ) : (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={layers.map((l) => l.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {layers.map((layer) => (
+                    <LayerRow
+                      key={layer.id}
+                      layer={layer}
+                      isSelected={selectedLayerId === layer.id}
+                      onSelect={() => handleSelect(layer.id)}
+                      onToggleVisibility={() => handleToggleVisibility(layer)}
+                      onDelete={() => handleDelete(layer.id)}
+                      onRename={(name) => handleRename(layer.id, name)}
+                      dark={dark}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
+            )}
+          </div>
+
+          {/* Footer hint */}
+          <div className={`px-4 py-2 border-t ${border} shrink-0`}>
+            <p className={`text-[10px] ${muted} text-center`}>
+              Top = Front · Drag to reorder · Double-click to rename
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

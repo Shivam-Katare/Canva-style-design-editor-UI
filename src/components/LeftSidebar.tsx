@@ -1,5 +1,5 @@
 import React from "react";
-import { Image, Type, Palette, Crop, MessageSquare } from "lucide-react";
+import { Image, Type, Palette, Crop } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEditorStore } from "../store/editorStore";
 import { PanelId } from "../types/editor";
@@ -7,14 +7,12 @@ import { ImagePanel } from "./panels/ImagePanel";
 import { TextPanel } from "./panels/TextPanel";
 import { BackgroundPanel } from "./panels/BackgroundPanel";
 import { CropPanel } from "./panels/CropPanel";
-import { CommentsPanel } from "./panels/CommentsPanel";
 
 const ICONS: { id: PanelId; Icon: LucideIcon; label: string }[] = [
   { id: "image", Icon: Image, label: "Image" },
   { id: "text", Icon: Type, label: "Text" },
   { id: "background", Icon: Palette, label: "Background" },
   { id: "crop", Icon: Crop, label: "Crop" },
-  { id: "comments", Icon: MessageSquare, label: "Comments" },
 ];
 
 export const LeftSidebar: React.FC = () => {
@@ -84,12 +82,11 @@ export const LeftSidebar: React.FC = () => {
           </div>
 
           {/* Panel body */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
             {activePanel === "image" && <ImagePanel />}
             {activePanel === "text" && <TextPanel />}
             {activePanel === "background" && <BackgroundPanel />}
             {activePanel === "crop" && <CropPanel />}
-            {activePanel === "comments" && <CommentsPanel />}
           </div>
         </div>
       )}
