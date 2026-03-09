@@ -1,12 +1,19 @@
-import { useState, useEffect, useRef } from 'react';
-import { Undo2, Redo2, Download, Save, FileJson, ZoomIn, ZoomOut, FolderOpen, Menu, ChevronDown } from 'lucide-react';
-import { VeltPresence, VeltCommentTool } from '@veltdev/react';
-import { useEditorStore } from '../store/editorStore';
-import { ExportModal } from './ExportModal';
-import { SaveModal } from './SaveModal';
-import { LoadModal } from './LoadModal';
-import { saveToJSON, loadFromJSON } from '../utils/export';
-import { User } from '../types/user';
+import React, { useState, useRef, useEffect } from "react";
+import { VeltPresence, useCommentUtils } from "@veltdev/react";
+import {
+  Undo2,
+  Redo2,
+  Sun,
+  Moon,
+  Download,
+  ChevronDown,
+  Check,
+  MessageSquare,
+} from "lucide-react";
+import { useEditorStore } from "../store/editorStore";
+import { useFabric } from "../contexts/FabricContext";
+import { CANVAS_PRESETS } from "../types/editor";
+import { User } from "../types/user";
 
 interface TopBarProps {
   currentUser: User;
@@ -14,316 +21,316 @@ interface TopBarProps {
   onSwitchUser: (user: User) => void;
 }
 
-export function TopBar({ currentUser, staticUsers, onSwitchUser }: TopBarProps) {
+export const TopBar: React.FC<TopBarProps> = ({
+  currentUser,
+  staticUsers,
+  onSwitchUser,
+}) => {
   const {
-    zoom,
-    setZoom,
-    undo,
-    redo,
+    theme,
+    setTheme,
+    canvasSize,
+    setCanvasSize,
+    setExportModalOpen,
     history,
     historyIndex,
-    document: editorDocument,
-    loadDocument,
-    resetDocument
+    undo: storeUndo,
+    redo: storeRedo,
+    showToast,
+    isCommentMode,
+    setIsCommentMode,
   } = useEditorStore();
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [showSaveModal, setShowSaveModal] = useState(false);
-  const [showLoadModal, setShowLoadModal] = useState(false);
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [showUserDropdown, setShowUserDropdown] = useState(false);
-  const userDropdownRef = useRef<HTMLDivElement>(null);
+  const { canvasRef } = useFabric();
+  const commentUtils = useCommentUtils();
 
+  const [sizeOpen, setSizeOpen] = useState(false);
+  const [userOpen, setUserOpen] = useState(false);
+  const [customW, setCustomW] = useState(1080);
+  const [customH, setCustomH] = useState(1080);
+  const dropRef = useRef<HTMLDivElement>(null);
+  const userDropRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
-        setShowUserDropdown(false);
-      }
+    const handler = (e: MouseEvent) => {
+      if (dropRef.current && !dropRef.current.contains(e.target as Node))
+        setSizeOpen(false);
+      if (
+        userDropRef.current &&
+        !userDropRef.current.contains(e.target as Node)
+      )
+        setUserOpen(false);
     };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
-    if (showUserDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
+  const toggleCommentMode = () => {
+    if (isCommentMode) {
+      commentUtils?.disableCommentMode();
+      setIsCommentMode(false);
+    } else {
+      commentUtils?.enableCommentMode();
+      setIsCommentMode(true);
     }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showUserDropdown]);
-
-  const handleExportJSON = () => {
-    saveToJSON(editorDocument);
   };
-  const handleImportJSON = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = async e => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        try {
-          const doc = await loadFromJSON(file);
-          loadDocument(doc);
-          alert('Design imported!');
-        } catch (error) {
-          alert('Failed to import design');
-        }
-      }
-    };
-    input.click();
+
+  const handleUndo = () => {
+    const entry = storeUndo();
+    if (entry && canvasRef.current) {
+      (canvasRef.current as any)
+        .loadFromJSON(JSON.parse(entry.canvasJson))
+        .then(() => canvasRef.current!.renderAll());
+    }
   };
+  const handleRedo = () => {
+    const entry = storeRedo();
+    if (entry && canvasRef.current) {
+      (canvasRef.current as any)
+        .loadFromJSON(JSON.parse(entry.canvasJson))
+        .then(() => canvasRef.current!.renderAll());
+    }
+  };
+
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
-  const [showFileMenu, setShowFileMenu] = useState(false);
-  const fileMenuRef = useRef<HTMLDivElement>(null);
+  const dark = theme === "dark";
+  const bg = dark ? "bg-[#111114]" : "bg-white";
+  const border = dark ? "border-[#242430]" : "border-[#e2e2ea]";
+  const text = dark ? "text-[#f0f0f5]" : "text-[#111114]";
+  const muted = dark ? "text-[#6b6b7a]" : "text-gray-400";
+  const dropBg = dark ? "bg-[#16161a]" : "bg-white";
+  const hov = dark ? "hover:bg-[#1e1e24]" : "hover:bg-gray-100";
+  const inp = dark
+    ? "bg-[#111114] text-[#f0f0f5]"
+    : "bg-gray-50 text-[#111114]";
 
-  // Close file menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (fileMenuRef.current && !fileMenuRef.current.contains(event.target as Node)) {
-        setShowFileMenu(false);
-      }
-    };
-
-    if (showFileMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showFileMenu]);
-
-
-
-  return <>
-      <div className="h-12 bg-[#252627] flex items-center justify-between px-3 text-white">
-        {/* Left Section: Menu, File, Undo/Redo */}
-        <div className="flex items-center gap-1">
-          {/* Mobile Menu Button */}
-          <button onClick={() => setShowMobileMenu(!showMobileMenu)} className="lg:hidden p-2 hover:bg-white/10 rounded transition-colors">
-            <Menu size={20} />
-          </button>
-
-          {/* Desktop: Hamburger Menu */}
-          <button className="hidden lg:flex p-2 hover:bg-white/10 rounded transition-colors">
-            <Menu size={20} />
-          </button>
-
-          {/* File Dropdown */}
-          <div ref={fileMenuRef} className="relative hidden lg:block">
-            <button
-              onClick={() => setShowFileMenu(!showFileMenu)}
-              className="px-3 py-1.5 text-sm hover:bg-white/10 rounded transition-colors"
-            >
-              File
-            </button>
-            {showFileMenu && (
-              <div className="absolute left-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-                <button
-                  onClick={() => { resetDocument(); setShowFileMenu(false); }}
-                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                >
-                  New Design
-                </button>
-                <button
-                  onClick={() => { setShowSaveModal(true); setShowFileMenu(false); }}
-                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                >
-                  <Save size={16} />
-                  Save
-                </button>
-                <button
-                  onClick={() => { setShowLoadModal(true); setShowFileMenu(false); }}
-                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                >
-                  <FolderOpen size={16} />
-                  Load
-                </button>
-                <div className="border-t border-gray-200 my-1"></div>
-                <button
-                  onClick={() => { handleExportJSON(); setShowFileMenu(false); }}
-                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                >
-                  <FileJson size={16} />
-                  Export JSON
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Undo/Redo - closer to left like Canva */}
-          <div className="hidden lg:flex items-center ml-2">
-            <button onClick={undo} disabled={!canUndo} className="p-2 hover:bg-white/10 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Undo (Cmd+Z)">
-              <Undo2 size={18} />
-            </button>
-            <button onClick={redo} disabled={!canRedo} className="p-2 hover:bg-white/10 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Redo (Cmd+Shift+Z)">
-              <Redo2 size={18} />
-            </button>
-          </div>
-        </div>
-
-        {/* Center Section: Document Title */}
-        <div className="flex-1 flex justify-center">
-          <span className="text-sm text-gray-300 truncate max-w-md hidden md:block">
-            {editorDocument.name || 'Untitled Design'}
-          </span>
-        </div>
-
-        {/* Right Section: Presence, Comments, Zoom, Share */}
-        <div className="flex items-center gap-2">
-          {/* Presence Avatars */}
-          <div className="hidden md:flex items-center">
-            <VeltPresence />
-          </div>
-
-          {/* Velt Comment Tool */}
-          <div className="hidden md:flex items-center">
-            <VeltCommentTool />
-          </div>
-
-          {/* User Switcher */}
-          <div ref={userDropdownRef} className="relative hidden md:block">
-            <button
-              onClick={() => setShowUserDropdown(!showUserDropdown)}
-              className="flex items-center gap-2 p-1.5 hover:bg-white/10 rounded transition-colors"
-            >
-              <img
-                src={currentUser.photoUrl}
-                alt={currentUser.name}
-                className="w-7 h-7 rounded-full"
-              />
-              <ChevronDown size={14} className="text-gray-400" />
-            </button>
-
-            {showUserDropdown && (
-              <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-                <div className="px-4 py-2 border-b border-gray-200">
-                  <p className="text-xs text-gray-500 font-medium">Switch User</p>
-                </div>
-                {staticUsers.map((user) => (
-                  <button
-                    key={user.userId}
-                    onClick={() => {
-                      onSwitchUser(user);
-                      setShowUserDropdown(false);
-                    }}
-                    className={`w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-50 transition-colors ${
-                      user.userId === currentUser.userId ? 'bg-indigo-50' : ''
-                    }`}
-                  >
-                    <img
-                      src={user.photoUrl}
-                      alt={user.name}
-                      className="w-9 h-9 rounded-full"
-                    />
-                    <div className="flex-1 text-left">
-                      <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                      <p className="text-xs text-gray-500">{user.email}</p>
-                    </div>
-                    {user.userId === currentUser.userId && (
-                      <div className="w-2 h-2 bg-indigo-600 rounded-full"></div>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Zoom Controls */}
-          <div className="hidden md:flex items-center gap-1 ml-2">
-            <button onClick={() => setZoom(Math.max(0.1, zoom - 0.1))} className="p-1.5 hover:bg-white/10 rounded transition-colors" title="Zoom Out">
-              <ZoomOut size={18} />
-            </button>
-            <span className="text-xs text-gray-400 w-10 text-center">
-              {Math.round(zoom * 100)}%
-            </span>
-            <button onClick={() => setZoom(Math.min(3, zoom + 0.1))} className="p-1.5 hover:bg-white/10 rounded transition-colors" title="Zoom In">
-              <ZoomIn size={18} />
-            </button>
-            <button onClick={() => setZoom(1)} className="px-2 py-1 text-xs hover:bg-white/10 rounded transition-colors text-gray-300">
-              Fit
-            </button>
-          </div>
-
-          {/* Mobile Undo/Redo */}
-          <div className="flex lg:hidden items-center gap-1">
-            <button onClick={undo} disabled={!canUndo} className="p-1.5 hover:bg-white/10 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Undo (Cmd+Z)">
-              <Undo2 size={16} />
-            </button>
-            <button onClick={redo} disabled={!canRedo} className="p-1.5 hover:bg-white/10 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Redo (Cmd+Shift+Z)">
-              <Redo2 size={16} />
-            </button>
-          </div>
-
-          {/* Share/Export Button */}
-          <button onClick={() => setShowExportModal(true)} className="px-4 py-1.5 bg-[#8b3dff] hover:bg-[#7c35e6] text-white rounded-lg transition-colors font-medium flex items-center gap-2 text-sm">
-            <Download size={16} />
-            <span className="hidden sm:inline">Share</span>
-          </button>
-        </div>
+  return (
+    <header
+      className={`h-12 px-4 flex items-center justify-between shrink-0 border-b ${bg} ${border} ${text} z-50 relative`}
+      style={{ minHeight: 48 }}
+    >
+      {/* ── Logo ─────────────────────────────────── */}
+      <div className="flex items-center gap-2 w-44">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <rect width="24" height="24" rx="6" fill="#ff6b4a" />
+          <path d="M6 7h8a3 3 0 0 1 0 6H6V7Z" fill="white" opacity="0.9" />
+          <path d="M6 13h5v4H6v-4Z" fill="white" opacity="0.6" />
+        </svg>
+        <span className="font-bold text-base tracking-tight text-[#ff6b4a]">
+          Pixframe
+        </span>
       </div>
 
-      {/* Mobile Menu Dropdown */}
-      {showMobileMenu && <div className="lg:hidden absolute top-12 left-0 right-0 bg-white shadow-lg border-b border-gray-200 z-40">
-          <div className="p-4 space-y-2">
-            <button onClick={() => {
-          resetDocument();
-          setShowMobileMenu(false);
-        }} className="w-full px-4 py-2 text-left hover:bg-gray-100 rounded transition-colors">
-              New Design
-            </button>
-            <button onClick={() => {
-          setShowSaveModal(true);
-          setShowMobileMenu(false);
-        }} className="w-full px-4 py-2 text-left hover:bg-gray-100 rounded transition-colors flex items-center gap-2">
-              <Save size={18} />
-              Save Design
-            </button>
-            <button onClick={() => {
-          setShowLoadModal(true);
-          setShowMobileMenu(false);
-        }} className="w-full px-4 py-2 text-left hover:bg-gray-100 rounded transition-colors flex items-center gap-2">
-              <FolderOpen size={18} />
-              Load Design
-            </button>
-            <button onClick={() => {
-          handleExportJSON();
-          setShowMobileMenu(false);
-        }} className="w-full px-4 py-2 text-left hover:bg-gray-100 rounded transition-colors flex items-center gap-2">
-              <FileJson size={18} />
-              Export JSON
-            </button>
-            <button onClick={() => {
-          handleImportJSON();
-          setShowMobileMenu(false);
-        }} className="w-full px-4 py-2 text-left hover:bg-gray-100 rounded transition-colors">
-              Import JSON
-            </button>
+      {/* ── Canvas Size Dropdown ──────────────────── */}
+      <div ref={dropRef} className="relative">
+        <button
+          onClick={() => setSizeOpen((v) => !v)}
+          className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border ${border} ${hov} transition-colors`}
+        >
+          <span className={`${muted} text-xs font-medium`}>
+            {canvasSize.name}
+          </span>
+          <span className="text-xs font-mono opacity-60">
+            {canvasSize.width}×{canvasSize.height}
+          </span>
+          <ChevronDown size={12} className={muted} />
+        </button>
 
-            {/* Mobile Zoom Controls */}
-            <div className="pt-2 border-t border-gray-200">
-              <p className="text-xs text-gray-500 mb-2">Zoom</p>
+        {sizeOpen && (
+          <div
+            className={`absolute top-full mt-1 left-1/2 -translate-x-1/2 w-64 rounded-xl border ${border} ${dropBg} shadow-2xl py-1 z-[200] panel-slide-in`}
+          >
+            {CANVAS_PRESETS.map((p) => (
+              <button
+                key={p.name}
+                onClick={() => {
+                  if (p.name !== "Custom") {
+                    setCanvasSize(p.width, p.height, p.name);
+                    setSizeOpen(false);
+                    showToast(`${p.name} · ${p.width}×${p.height}`);
+                  }
+                }}
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm ${hov} transition-colors ${text}`}
+              >
+                <span>{p.name}</span>
+                <div className="flex items-center gap-2">
+                  {p.name !== "Custom" && (
+                    <span className={`${muted} text-xs font-mono`}>
+                      {p.width}×{p.height}
+                    </span>
+                  )}
+                  {canvasSize.name === p.name && (
+                    <Check size={12} className="text-[#ff6b4a]" />
+                  )}
+                </div>
+              </button>
+            ))}
+            <div className={`px-3 pt-2 pb-3 border-t ${border} mt-1`}>
+              <p className={`text-xs ${muted} mb-2`}>Custom size</p>
               <div className="flex items-center gap-2">
-                <button onClick={() => setZoom(Math.max(0.1, zoom - 0.1))} className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded transition-colors">
-                  <ZoomOut size={18} className="mx-auto" />
-                </button>
-                <span className="text-sm font-medium w-16 text-center">
-                  {Math.round(zoom * 100)}%
-                </span>
-                <button onClick={() => setZoom(Math.min(3, zoom + 0.1))} className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded transition-colors">
-                  <ZoomIn size={18} className="mx-auto" />
-                </button>
-                <button onClick={() => setZoom(1)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded transition-colors text-sm">
-                  Fit
+                <input
+                  type="number"
+                  value={customW}
+                  onChange={(e) => setCustomW(+e.target.value)}
+                  min={100}
+                  max={8000}
+                  className={`w-20 text-xs px-2 py-1.5 rounded-lg border ${border} ${inp} focus:outline-none focus:border-[#ff6b4a]`}
+                />
+                <span className={`${muted} text-xs`}>×</span>
+                <input
+                  type="number"
+                  value={customH}
+                  onChange={(e) => setCustomH(+e.target.value)}
+                  min={100}
+                  max={8000}
+                  className={`w-20 text-xs px-2 py-1.5 rounded-lg border ${border} ${inp} focus:outline-none focus:border-[#ff6b4a]`}
+                />
+                <button
+                  onClick={() => {
+                    setCanvasSize(customW, customH, "Custom");
+                    setSizeOpen(false);
+                    showToast(`Custom · ${customW}×${customH}`);
+                  }}
+                  className="text-xs px-2 py-1.5 rounded-lg bg-[#ff6b4a] text-white hover:bg-[#e85b3c] transition-colors"
+                >
+                  Set
                 </button>
               </div>
             </div>
           </div>
-        </div>}
+        )}
+      </div>
 
-      {showExportModal && <ExportModal onClose={() => setShowExportModal(false)} />}
-      {showSaveModal && <SaveModal onClose={() => setShowSaveModal(false)} />}
-      {showLoadModal && <LoadModal onClose={() => setShowLoadModal(false)} />}
-    </>;
-}
+      {/* ── Right Controls ────────────────────────── */}
+      <div className="flex items-center gap-1 justify-end">
+        <button
+          onClick={handleUndo}
+          disabled={!canUndo}
+          title="Undo (Ctrl+Z)"
+          className={`p-2 rounded-lg transition-all ${canUndo ? `${hov} ${text}` : "opacity-30 cursor-not-allowed text-[#6b6b7a]"}`}
+        >
+          <Undo2 size={16} />
+        </button>
+        <button
+          onClick={handleRedo}
+          disabled={!canRedo}
+          title="Redo (Ctrl+Y)"
+          className={`p-2 rounded-lg transition-all ${canRedo ? `${hov} ${text}` : "opacity-30 cursor-not-allowed text-[#6b6b7a]"}`}
+        >
+          <Redo2 size={16} />
+        </button>
+
+        <div
+          className={`w-px h-5 ${dark ? "bg-[#242430]" : "bg-[#e2e2ea]"} mx-1`}
+        />
+
+        {/* Comment mode toggle */}
+        <button
+          onClick={toggleCommentMode}
+          title={isCommentMode ? "Disable comment mode" : "Enable comment mode"}
+          className={`p-2 rounded-lg transition-all ${
+            isCommentMode
+              ? "bg-[#ff6b4a]/20 text-[#ff6b4a] ring-1 ring-[#ff6b4a]/50"
+              : `${hov} ${text}`
+          }`}
+        >
+          <MessageSquare size={16} />
+        </button>
+
+        <button
+          onClick={() => setTheme(dark ? "light" : "dark")}
+          title="Toggle theme"
+          className={`p-2 rounded-lg transition-all ${hov} ${text}`}
+        >
+          {dark ? <Sun size={16} /> : <Moon size={16} />}
+        </button>
+
+        {/* Velt Presence Avatars */}
+        <div className="mx-1">
+          <VeltPresence />
+        </div>
+
+        {/* User Switcher */}
+        <div ref={userDropRef} className="relative">
+          <button
+            onClick={() => setUserOpen((v) => !v)}
+            title="Switch user"
+            className={`flex items-center gap-1.5 p-1 pr-2 rounded-lg border ${border} ${hov} transition-colors`}
+          >
+            <img
+              src={currentUser.photoUrl}
+              alt={currentUser.name}
+              className="w-6 h-6 rounded-full object-cover shrink-0"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src =
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=7c5cfc&color=fff&size=64`;
+              }}
+            />
+            <span
+              className={`text-xs font-medium max-w-[64px] truncate ${text}`}
+            >
+              {currentUser.name.split(" ")[0]}
+            </span>
+            <ChevronDown size={10} className={muted} />
+          </button>
+
+          {userOpen && (
+            <div
+              className={`absolute top-full mt-1 right-0 w-52 rounded-xl border ${border} ${dropBg} shadow-2xl py-1 z-[200] panel-slide-in`}
+            >
+              <p
+                className={`text-[10px] font-semibold uppercase tracking-wider px-3 pt-2 pb-1 ${muted}`}
+              >
+                Switch user
+              </p>
+              {staticUsers.map((u) => (
+                <button
+                  key={u.userId}
+                  onClick={() => {
+                    onSwitchUser(u);
+                    setUserOpen(false);
+                    showToast(`Signed in as ${u.name}`);
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm ${hov} transition-colors ${text}`}
+                >
+                  <img
+                    src={u.photoUrl}
+                    alt={u.name}
+                    className="w-7 h-7 rounded-full object-cover shrink-0"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src =
+                        `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=7c5cfc&color=fff&size=64`;
+                    }}
+                  />
+                  <div className="flex-1 text-left">
+                    <p className="text-xs font-medium leading-tight">
+                      {u.name}
+                    </p>
+                    <p className={`text-[10px] ${muted} leading-tight`}>
+                      {u.email}
+                    </p>
+                  </div>
+                  {currentUser.userId === u.userId && (
+                    <Check size={12} className="text-[#ff6b4a] shrink-0" />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <button
+          onClick={() => setExportModalOpen(true)}
+          title="Export (Ctrl+E)"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white
+            bg-gradient-to-r from-[#ff6b4a] to-[#e8445a]
+            hover:scale-[1.02] hover:brightness-110 active:scale-[0.98]
+            transition-all duration-150 shadow-lg shadow-[#ff6b4a]/30"
+        >
+          <Download size={15} />
+          Export
+        </button>
+      </div>
+    </header>
+  );
+};

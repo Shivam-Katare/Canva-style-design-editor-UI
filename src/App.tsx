@@ -1,134 +1,129 @@
-import { useEffect, useState } from 'react';
-import { VeltProvider, useVeltClient, VeltComments } from '@veltdev/react';
-import { TopBar } from './components/TopBar';
-import { BottomBar } from './components/BottomBar';
-import { LeftSidebar } from './components/LeftSidebar';
-import { CanvasStage } from './components/CanvasStage';
-import { RightInspector } from './components/RightInspector';
-import { LayerList } from './components/LayerList';
-import { EditorProvider, useEditor } from './contexts/EditorContext';
-import { User } from './types/user';
+import { useEffect, useState } from "react";
+import {
+  VeltProvider,
+  useVeltClient,
+  VeltComments,
+  useCommentUtils,
+} from "@veltdev/react";
+import { FabricProvider } from "./contexts/FabricContext";
+import { useEditorStore } from "./store/editorStore";
+import { TopBar } from "./components/TopBar";
+import { LeftSidebar } from "./components/LeftSidebar";
+import { CanvasArea } from "./components/CanvasArea";
+import { LayersPanel } from "./components/LayersPanel";
+import { ExportModal } from "./components/ExportModal";
+import { Toast } from "./components/Toast";
+import { User } from "./types/user";
 
-// Static users configuration - Rick and Morty
 const staticUsers: User[] = [
   {
     userId: "user-1",
     name: "Rick Sanchez",
     email: "rick@rickandmorty.com",
     photoUrl: "https://rickandmortyapi.com/api/character/avatar/1.jpeg",
-    organizationId: "org-1",
+    organizationId: "org-pixframe",
   },
   {
     userId: "user-2",
     name: "Morty Smith",
     email: "morty@rickandmorty.com",
     photoUrl: "https://rickandmortyapi.com/api/character/avatar/2.jpeg",
-    organizationId: "org-1",
+    organizationId: "org-pixframe",
   },
 ];
 
-interface AppContentProps {
-  currentUser: User;
-  staticUsers: User[];
-  onSwitchUser: (user: User) => void;
-}
-
 function AppContent({
   currentUser,
-  staticUsers,
   onSwitchUser,
-}: AppContentProps) {
+}: {
+  currentUser: User;
+  onSwitchUser: (user: User) => void;
+}) {
   const { client } = useVeltClient();
-  const {
-    undo,
-    redo
-  } = useEditor();
+  const commentUtils = useCommentUtils();
+  const { theme, setTheme, setIsCommentMode } = useEditorStore();
 
   useEffect(() => {
-    const initializeVelt = async () => {
-      if (client && currentUser) {
-        console.log("🔧 Initializing Velt with user:", currentUser);
+    // Apply dark theme class on mount
+    setTheme("dark");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-        try {
-          // Identify the user first
-          await client.identify(currentUser);
-          console.log("✅ User identified successfully");
+  useEffect(() => {
+    const init = async () => {
+      if (!client || !currentUser) return;
+      try {
+        // Always reset comment mode before re-identifying so stale Velt
+        // overlays are removed and isCommentMode doesn't block canvas ops.
+        commentUtils?.disableCommentMode();
+        setIsCommentMode(false);
 
-          // Then set the document for collaboration
-          await client.setDocument("collaborative-canvas-2024", {
-            documentName: "Canva Clone Collaboration",
-          });
-          console.log("✅ Document set successfully");
-        } catch (error) {
-          console.error("❌ Velt initialization error:", error);
-        }
+        await client.identify(currentUser);
+        await client.setDocument("pixframe-collaborative-canvas", {
+          documentName: "Pixframe Design",
+        });
+      } catch (e) {
+        console.error("Velt init error:", e);
       }
     };
-
-    initializeVelt();
+    init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, currentUser]);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Undo: Cmd+Z or Ctrl+Z
-      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        undo();
-      }
-      // Redo: Cmd+Shift+Z or Ctrl+Shift+Z
-      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && e.shiftKey) {
-        e.preventDefault();
-        redo();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo]);
+  return (
+    <div
+      className={`w-full h-screen flex flex-col overflow-hidden select-none ${
+        theme === "dark" ? "bg-[#111114]" : "bg-white"
+      }`}
+    >
+      {/* Velt comment pins render over the whole app */}
+      <VeltComments shadowDom={false} />
 
-  return <div className="w-full h-screen flex flex-col bg-gray-50">
       <TopBar
         currentUser={currentUser}
         staticUsers={staticUsers}
         onSwitchUser={onSwitchUser}
       />
-      <div className="flex-1 flex overflow-hidden relative">
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left icon bar + expandable panels */}
         <LeftSidebar />
-        <CanvasStage />
-        <RightInspector />
-        <LayerList />
+
+        {/* Main canvas stage (contains VeltCursor) */}
+        <CanvasArea />
+
+        {/* Right layers panel */}
+        <LayersPanel />
       </div>
-      <BottomBar />
-    </div>;
+
+      <ExportModal />
+      <Toast />
+    </div>
+  );
 }
 
 export function App() {
   const apiKey = import.meta.env.VITE_VELT_API_KEY;
-  const [currentUser, setCurrentUser] = useState(staticUsers[0]);
+  const [currentUser, setCurrentUser] = useState<User>(staticUsers[0]);
 
-  const switchUser = (user: User) => {
-    setCurrentUser(user);
-    localStorage.setItem("canvas-current-user", user.userId);
-  };
-
-  // Load user preference on app start
   useEffect(() => {
-    const storedUserId = localStorage.getItem("canvas-current-user");
-    const user = storedUserId
-      ? staticUsers.find((u) => u.userId === storedUserId) || staticUsers[0]
-      : staticUsers[0];
-    setCurrentUser(user);
+    const stored = localStorage.getItem("pixframe-current-user");
+    if (stored) {
+      const found = staticUsers.find((u) => u.userId === stored);
+      if (found) setCurrentUser(found);
+    }
   }, []);
+
+  const handleSwitchUser = (user: User) => {
+    setCurrentUser(user);
+    localStorage.setItem("pixframe-current-user", user.userId);
+  };
 
   return (
     <VeltProvider apiKey={apiKey}>
-      <VeltComments shadowDom={false} />
-      <EditorProvider>
-        <AppContent
-          currentUser={currentUser}
-          staticUsers={staticUsers}
-          onSwitchUser={switchUser}
-        />
-      </EditorProvider>
+      <FabricProvider>
+        <AppContent currentUser={currentUser} onSwitchUser={handleSwitchUser} />
+      </FabricProvider>
     </VeltProvider>
   );
 }

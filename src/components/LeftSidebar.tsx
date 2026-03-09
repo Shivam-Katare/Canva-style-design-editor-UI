@@ -1,216 +1,98 @@
-import React, { useState } from 'react';
-import { Type, Image, Square, Circle, Minus, Layers, Upload, X } from 'lucide-react';
-import { useEditorStore } from '../store/editorStore';
-import { TemplateModal } from './TemplateModal';
-function ImageUploadModal({
-  onClose
-}: {
-  onClose: () => void;
-}) {
-  const {
-    addLayer
-  } = useEditorStore();
-  const [dragActive, setDragActive] = useState(false);
-  const handleFile = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      alert('Please upload an image file');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = new window.Image();
-      img.onload = () => {
-        addLayer({
-          type: 'image',
-          x: 540,
-          y: 960,
-          width: img.width,
-          height: img.height,
-          rotation: 0,
-          scaleX: Math.min(800 / img.width, 1),
-          scaleY: Math.min(800 / img.height, 1),
-          visible: true,
-          props: {
-            src: e.target?.result as string,
-            opacity: 1
-          }
-        });
-        onClose();
-      };
-      img.src = e.target?.result as string;
-    };
-    reader.readAsDataURL(file);
-  };
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
-    }
-  };
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFile(e.dataTransfer.files[0]);
-    }
-  };
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    if (e.target.files && e.target.files[0]) {
-      handleFile(e.target.files[0]);
-    }
-  };
-  return <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold">Upload Image</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-            <X size={20} />
+import React from "react";
+import { Image, Type, Palette, Crop, MessageSquare } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { useEditorStore } from "../store/editorStore";
+import { PanelId } from "../types/editor";
+import { ImagePanel } from "./panels/ImagePanel";
+import { TextPanel } from "./panels/TextPanel";
+import { BackgroundPanel } from "./panels/BackgroundPanel";
+import { CropPanel } from "./panels/CropPanel";
+import { CommentsPanel } from "./panels/CommentsPanel";
+
+const ICONS: { id: PanelId; Icon: LucideIcon; label: string }[] = [
+  { id: "image", Icon: Image, label: "Image" },
+  { id: "text", Icon: Type, label: "Text" },
+  { id: "background", Icon: Palette, label: "Background" },
+  { id: "crop", Icon: Crop, label: "Crop" },
+  { id: "comments", Icon: MessageSquare, label: "Comments" },
+];
+
+export const LeftSidebar: React.FC = () => {
+  const { theme, activePanel, setActivePanel } = useEditorStore();
+  const dark = theme === "dark";
+
+  const sidebarBg = dark ? "bg-[#111114]" : "bg-[#fafafa]";
+  const border = dark ? "border-[#242430]" : "border-[#e2e2ea]";
+  const panelBg = dark ? "bg-[#16161a]" : "bg-white";
+  const hov = dark ? "hover:bg-[#1e1e24]" : "hover:bg-gray-100";
+  const text = dark ? "text-[#f0f0f5]" : "text-[#111114]";
+  const muted = dark ? "text-[#6b6b7a]" : "text-gray-400";
+
+  return (
+    <div className="flex h-full shrink-0 relative z-40">
+      {/* ── 48px icon bar ─────────────────────────────────── */}
+      <div
+        className={`w-12 h-full flex flex-col items-center py-3 gap-1 border-r ${sidebarBg} ${border} shrink-0`}
+      >
+        {ICONS.map(({ id, Icon, label }) => (
+          <button
+            key={id}
+            onClick={() => setActivePanel(id)}
+            title={label}
+            className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all group relative
+              ${
+                activePanel === id
+                  ? "bg-[#ff6b4a]/20 text-[#ff6b4a]"
+                  : `${muted} ${hov}`
+              }`}
+          >
+            <Icon size={18} />
+            {/* Tooltip */}
+            <span
+              className={`absolute left-full ml-2 px-2 py-1 text-xs rounded-md whitespace-nowrap pointer-events-none
+              opacity-0 group-hover:opacity-100 transition-opacity z-50
+              ${dark ? "bg-[#1e1e24] text-[#f0f0f5]" : "bg-gray-800 text-white"}`}
+            >
+              {label}
+            </span>
+            {/* Active indicator */}
+            {activePanel === id && (
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-[#ff6b4a] rounded-r-full -ml-3" />
+            )}
           </button>
-        </div>
-
-        <div onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop} className={`border-2 border-dashed rounded-lg p-8 md:p-12 text-center transition-colors ${dragActive ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300'}`}>
-          <Upload size={48} className="mx-auto mb-4 text-gray-400" />
-          <p className="text-gray-600 mb-2">Drag and drop an image here</p>
-          <p className="text-sm text-gray-400 mb-4">or</p>
-          <label className="inline-block px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer">
-            Choose File
-            <input type="file" accept="image/*" onChange={handleChange} className="hidden" />
-          </label>
-        </div>
-
-        <button onClick={onClose} className="mt-4 w-full px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors">
-          Cancel
-        </button>
-      </div>
-    </div>;
-}
-export function LeftSidebar() {
-  const {
-    addLayer
-  } = useEditorStore();
-  const [showTemplates, setShowTemplates] = useState(false);
-  const [showUploader, setShowUploader] = useState(false);
-  const handleAddText = () => {
-    addLayer({
-      type: 'text',
-      x: 540,
-      y: 960,
-      width: 600,
-      height: 100,
-      rotation: 0,
-      scaleX: 1,
-      scaleY: 1,
-      visible: true,
-      props: {
-        text: 'Add your text',
-        fontSize: 48,
-        fontFamily: 'Inter',
-        fontWeight: '600',
-        textAlign: 'center',
-        fill: '#000000'
-      }
-    });
-  };
-  const handleAddRect = () => {
-    addLayer({
-      type: 'rect',
-      x: 540,
-      y: 960,
-      width: 400,
-      height: 300,
-      rotation: 0,
-      scaleX: 1,
-      scaleY: 1,
-      visible: true,
-      props: {
-        fill: '#3B82F6',
-        stroke: '#1E40AF',
-        strokeWidth: 2,
-        opacity: 1,
-        cornerRadius: 8
-      }
-    });
-  };
-  const handleAddEllipse = () => {
-    addLayer({
-      type: 'ellipse',
-      x: 540,
-      y: 960,
-      width: 400,
-      height: 400,
-      rotation: 0,
-      scaleX: 1,
-      scaleY: 1,
-      visible: true,
-      props: {
-        fill: '#8B5CF6',
-        stroke: '#6D28D9',
-        strokeWidth: 2,
-        opacity: 1
-      }
-    });
-  };
-  const handleAddLine = () => {
-    addLayer({
-      type: 'line',
-      x: 340,
-      y: 960,
-      width: 400,
-      height: 0,
-      rotation: 0,
-      scaleX: 1,
-      scaleY: 1,
-      visible: true,
-      props: {
-        stroke: '#000000',
-        strokeWidth: 4,
-        opacity: 1
-      }
-    });
-  };
-  return <>
-      <div className="w-16 md:w-20 bg-gray-50 border-r border-gray-200 flex flex-col items-center py-4 md:py-6 gap-4 md:gap-6 overflow-y-auto">
-        <button onClick={() => setShowTemplates(true)} className="flex flex-col items-center gap-1 md:gap-2 p-2 md:p-3 hover:bg-gray-100 rounded-lg transition-colors w-12 md:w-16" title="Templates">
-          <Layers size={20} className="md:w-6 md:h-6 text-gray-700" />
-          <span className="text-[10px] md:text-xs text-gray-600">
-            Templates
-          </span>
-        </button>
-
-        <button onClick={handleAddText} className="flex flex-col items-center gap-1 md:gap-2 p-2 md:p-3 hover:bg-gray-100 rounded-lg transition-colors w-12 md:w-16" title="Add Text">
-          <Type size={20} className="md:w-6 md:h-6 text-gray-700" />
-          <span className="text-[10px] md:text-xs text-gray-600">Text</span>
-        </button>
-
-        <button onClick={() => setShowUploader(true)} className="flex flex-col items-center gap-1 md:gap-2 p-2 md:p-3 hover:bg-gray-100 rounded-lg transition-colors w-12 md:w-16" title="Upload Image">
-          <Image size={20} className="md:w-6 md:h-6 text-gray-700" />
-          <span className="text-[10px] md:text-xs text-gray-600">Image</span>
-        </button>
-
-        <div className="w-10 md:w-12 h-px bg-gray-300 my-1 md:my-2" />
-
-        <button onClick={handleAddRect} className="flex flex-col items-center gap-1 md:gap-2 p-2 md:p-3 hover:bg-gray-100 rounded-lg transition-colors w-12 md:w-16" title="Add Rectangle">
-          <Square size={20} className="md:w-6 md:h-6 text-gray-700" />
-          <span className="text-[10px] md:text-xs text-gray-600">Rect</span>
-        </button>
-
-        <button onClick={handleAddEllipse} className="flex flex-col items-center gap-1 md:gap-2 p-2 md:p-3 hover:bg-gray-100 rounded-lg transition-colors w-12 md:w-16" title="Add Circle">
-          <Circle size={20} className="md:w-6 md:h-6 text-gray-700" />
-          <span className="text-[10px] md:text-xs text-gray-600">Circle</span>
-        </button>
-
-        <button onClick={handleAddLine} className="flex flex-col items-center gap-1 md:gap-2 p-2 md:p-3 hover:bg-gray-100 rounded-lg transition-colors w-12 md:w-16" title="Add Line">
-          <Minus size={20} className="md:w-6 md:h-6 text-gray-700" />
-          <span className="text-[10px] md:text-xs text-gray-600">Line</span>
-        </button>
+        ))}
       </div>
 
-      {showTemplates && <TemplateModal onClose={() => setShowTemplates(false)} />}
-      {showUploader && <ImageUploadModal onClose={() => setShowUploader(false)} />}
-    </>;
-}
+      {/* ── Expandable panel ──────────────────────────────── */}
+      {activePanel && (
+        <div
+          className={`w-[280px] h-full border-r ${panelBg} ${border} ${text} flex flex-col overflow-hidden panel-slide-in`}
+        >
+          {/* Panel header */}
+          <div
+            className={`px-4 py-3 border-b ${border} flex items-center justify-between shrink-0`}
+          >
+            <span className="text-sm font-semibold">
+              {ICONS.find((i) => i.id === activePanel)?.label}
+            </span>
+            <button
+              onClick={() => setActivePanel(activePanel)}
+              className={`w-6 h-6 flex items-center justify-center rounded ${muted} ${hov} transition-colors text-lg leading-none`}
+            >
+              ×
+            </button>
+          </div>
+
+          {/* Panel body */}
+          <div className="flex-1 overflow-y-auto">
+            {activePanel === "image" && <ImagePanel />}
+            {activePanel === "text" && <TextPanel />}
+            {activePanel === "background" && <BackgroundPanel />}
+            {activePanel === "crop" && <CropPanel />}
+            {activePanel === "comments" && <CommentsPanel />}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
