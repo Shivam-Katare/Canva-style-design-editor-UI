@@ -1,205 +1,260 @@
-## Prompt Used for UI
+# Pixframe — Collaborative Design Editor
 
-```text
-Build a minimal, production-ready Canva-like web app (MVP) using React that lets users create a simple vertical Instagram/Story-sized design like the screenshot reference. Focus on clean, minimal UI and a robust canvas editor with basic features: templates, image uploads, text, shapes, layers, transforms (move/scale/rotate), simple style controls, and export (PNG/PDF). Keep UI minimal and closely follow the attached design reference: /mnt/data/6493fecb-4593-443b-bdea-4ce49e5de29d.png.
+A real-time collaborative design editor built with React, Fabric.js, Zustand, and Velt for seamless multi-user canvas collaboration — think Canva with live presence, synced canvas state, and inline comments.
 
-UI/Design reference: /mnt/data/6493fecb-4593-443b-bdea-4ce49e5de29d.png
+---
 
-Recommended tech stack (follow unless you have a strong reason to change)
+**Built with:** [Velt SDK](https://velt.dev) · [Velt CRDT](https://docs.velt.dev) · [Fabric.js](https://fabricjs.com) · [Zustand](https://zustand-demo.pmnd.rs) · [React](https://react.dev) · [Vite](https://vitejs.dev) · [Tailwind CSS](https://tailwindcss.com)
 
-Frontend: React + Vite (or Next.js if you want SSR/easier hosting later)
+---
 
-Canvas engine: react-konva (Konva) or fabric.js if you prefer an imperative canvas object model. (Either is acceptable; pick Konva for React-idiomatic declarative flow.) konvajs.org+1
+## Features
 
-Transforms / handles: react-moveable to provide visual transform handles (resize/rotate/scale/warp). npm+1
+### Core Canvas
 
-Uploads: Uppy for image upload UI & remote sources. uppy.io
+- **Fabric.js powered canvas** — full object model with move, scale, rotate, and flip
+- **Canvas presets** — Instagram Post, Instagram Story, Twitter Header, YouTube Thumbnail, Facebook Cover, or custom size
+- **Zoom controls** — zoom in/out with the toolbar or keyboard shortcuts
+- **Dark / Light theme** — toggle between modes; synced with Velt's dark mode API
 
-Color pickers: react-color or PrimeReact ColorPicker. casesandberg.github.io+1
+### Layer System
 
-Export: Use stage.toDataURL() (Konva) or canvas.toDataURL() and jsPDF / html2canvas for PDF export. Stack Overflow
+- **Image layers** — upload via drag-and-drop or file picker; HEIC/HEIF auto-converted
+- **Text layers** — inline editing with 20+ Google Fonts, size, weight, italic, underline, alignment, letter spacing, line height, and color
+- **Background** — solid color swatches, custom hex picker, preset gradients, custom gradient builder with 8 angle presets, repeating SVG patterns (dots, grid, diagonal, crosshatch, waves, triangles, hexagons, noise), or a full-canvas background image
+- **Crop** — free or aspect-ratio locked (1:1, 4:3, 16:9, 3:4, 9:16) cropping for image layers
+- **Layer panel** — reorder layers via drag-and-drop, toggle visibility, delete, rename
 
-State management: React context + Zustand for local app state (or simple useState for MVP). Persist editor JSON via localStorage and allow export/import of JSON.
+### Undo / Redo
 
-Styling: Tailwind CSS for rapid clean/minimal UI, or plain CSS modules.
+- Up to 50-step undo/redo history
+- Keyboard shortcuts: `Ctrl+Z` / `Ctrl+Shift+Z`
 
-Optional (real-time/collab later): Yjs (CRDT) with a websocket provider. yjs.dev
+### Export
 
-MVP Feature list (must-have)
+- Export canvas as **PNG**, **JPEG**, or **WebP**
+- Configurable export quality and scale (1×, 2×, 3×)
 
-Canvas workspace
+### Collaboration (Velt)
 
-Default canvas size: vertical story/post ratio (e.g., 1080 × 1920 or 374 × 812 for viewport). Canvas centered in page like the screenshot.
+- **Live Presence** — see other users' avatars and cursors on the canvas in real time
+- **CRDT Canvas Sync** — every canvas change (objects, backgrounds, layer order, visibility) is synced conflict-free to all peers via `useVeltCrdtStore`
+- **Comments** — click anywhere on the canvas to leave a pinned comment; comment sidebar for a full overview
+- **Notifications** — bell icon notifies users of new comments and activity
+- **User switcher** — switch between hardcoded users (Rick Sanchez / Morty Smith) from the top bar to simulate multi-user sessions
 
-Zoom & pan controls (basic: fit-to-screen, 100%, zoom slider).
+---
 
-Add / manage layers
+## Velt Integration
 
-Add image, text layer, rectangle/ellipse/line.
+Velt makes real-time collaboration drop-in simple. The entire collaboration stack — presence, comments, notifications, and live state sync — was wired up in minutes using the [Velt plugin](https://docs.velt.dev/get-started/plugins).
 
-Layer stack with reorder, hide/show, delete.
+### How it works
 
-Image uploads
+**1. Provider setup**
 
-Drag & drop or upload via Uppy; scale/position/crop basic.
-
-Text editing
-
-Add text box, type inline, change font size, font family (Google Fonts), weight, alignment, color; support multiline and simple line-height control.
-
-Transforms
-
-Move (drag), resize (keeping aspect ratio with shift), rotate, flip horizontally/vertically.
-
-Use react-moveable handles on selected objects.
-
-Style controls
-
-Fill color, stroke color & width, opacity.
-
-For images: brightness/contrast/simple filters (optional).
-
-Templates / presets
-
-Provide 3–5 starter templates (pre-arranged layers with placeholder text & image).
-
-Export
-
-Export canvas to PNG (download) + export to PDF using jsPDF or html2canvas.
-
-Save / load
-
-Save design to local JSON and load from JSON.
-
-Undo / redo (minimum 10 steps)
-
-Responsive minimal UI
-
-Left sidebar: tools/templates (icons + labels)
-
-Center: canvas
-
-Right sidebar: properties inspector for selection
-
-Top bar: file actions (New, Save, Export), zoom, undo/redo
-
-Bottom: page thumbnails / timeline (optional)
-
-Accessibility basics
-
-Keyboard shortcuts for move (arrow keys), delete, undo/redo.
-
-Non-functional requirements
-
-Performance: Offscreen rendering for expensive operations, skip rendering offscreen objects (Konva supports optimizations). Persist only necessary parts of state to avoid huge re-renders. fabricjs.com
-
-Code quality: TypeScript, ESLint, Prettier, modular components, unit tests for core utilities (transform math, export).
-
-Extensibility: Codebase structured so new tools (stickers, icons, shapes) can be added easily.
-
-Component breakdown (suggested)
-
-App — global providers (Zustand store, Theme, Font loader).
-
-Topbar — New, Save, Export, Undo/Redo, Zoom controls.
-
-LeftSidebar — Tools / Templates / Uploads (Uppy integration).
-
-CanvasStage — wrapper for Konva Stage or Fabric canvas and main interaction area.
-
-Subcomponents: LayerList, CanvasObject (text, image, shape), SelectionTransformer (react-moveable).
-
-RightInspector — properties for selected object: typography, fill/stroke, position, size, rotation, opacity.
-
-Modal — import/export JSON, template chooser, confirm dialogs.
-
-AssetsManager — local assets / user uploads, thumbnails.
-
-ExportService — utilities to produce PNG/PDF/JSON.
-
-Data model (minimal)
-
-type Layer = {   id: string;   type: 'image' | 'text' | 'rect' | 'ellipse';   x: number; y: number;   width: number; height: number;   rotation: number;   scaleX?: number; scaleY?: number;   visible: boolean;   zIndex: number;   props: any; // type-specific props (text content, font, image src, filters) }; type Document = {   id: string;   width: number;   height: number;   background: { color?: string; image?: string };   layers: Layer[];   metadata?: any; }; 
-
-Implementation notes & library mapping (explicit)
-
-Canvas engine: Use react-konva for Stage + Layers + Konva shapes. Konva Stage supports toDataURL() for export. konvajs.org+1
-
-Selection & transform: When a user selects a Konva node, attach react-moveable to the DOM wrapper to show handles for resizing/rotating. react-moveable supports group transforms, snapping and pinch gestures. npm+1
-
-Image upload: Use Uppy with a simple local store; when uploaded, add to assets and create a new image layer. uppy.io
-
-Fonts: Load Google Fonts dynamically based on selected font list. Consider opentype.js only if you need precise glyph metrics (not required for MVP).
-
-Export: Use Konva stage.toDataURL({ pixelRatio: 2 }) for PNG; for PDF, convert the PNG into jsPDF or use html2canvas if using DOM elements for parts of the UI. Stack Overflow
-
-Acceptance criteria (what “done” looks like)
-
-User can open the app and see a minimal UI resembling the attached reference /mnt/data/6493fecb-4593-443b-bdea-4ce49e5de29d.png.
-
-User can drag & drop or upload an image and place it onto the canvas.
-
-User can add text, edit it inline, change font size & color.
-
-User can select an object and move/resize/rotate it with visible handles.
-
-User can reorder layers and toggle visibility.
-
-User can export the canvas as a PNG (file saved locally).
-
-Save & load JSON of the document state via download/upload or localStorage.
-
-Undo/redo works for add/delete/transform actions.
-
-Milestones & estimated tasks (useful if handing to a team)
-
-Day 1-2: Set up project, base UI layout, Tailwind, routing, basic Konva stage, zoom & pan.
-
-Day 3-5: Implement Add Image/Text/Shape; Uppy integration for uploads; basic layer list.
-
-Day 6-8: Selection, transform handles using react-moveable; properties inspector.
-
-Day 9-10: Export (PNG/PDF), save/load JSON, undo/redo.
-
-Day 11-12: Templates, small polish, responsive adjustments, accessibility checks.
-
-Optional (later): Yjs real-time collaboration integration.
-
-Developer tips & gotchas
-
-Konva nodes require manual syncing of DOM transforms when using react-moveable; use a transparent DOM wrapper over the Stage to attach moveable, or use Konva’s built-in Transformer for simple cases. konvajs.org
-
-For rotated resize math, rely on library helpers (moveable or Konva Transformer) — hand-rolled math is error-prone. GitHub+1
-
-Use skipOffscreen or similar when you have many objects to avoid slow re-renders. fabricjs.com
+```tsx
+<VeltProvider apiKey={VITE_VELT_API_KEY}>
+  <FabricProvider>
+    <AppContent />
+  </FabricProvider>
+</VeltProvider>
 ```
 
-## Stack Used
-- React 
-- Magic Patterns for UI
-- Velt for making it collaborative
+**2. User identification & document context**
 
-## Velt features
+```ts
+await client.identify(currentUser);
+await client.setDocument("pixframe-collaborative-canvas", {
+  documentName: "Pixframe Design",
+});
+```
 
-- Presence
-- Live state sync
+**3. CRDT canvas sync — the single hook that keeps every peer in sync**
 
-## Screenshots (Magicpatterns)
+```ts
+const { value, update } = useVeltCrdtStore<string>({
+  id: "pixframe-canvas-state",
+  type: "text",
+  initialValue: "",
+});
+```
 
-### Initial prompt
+Every canvas mutation serialises the Fabric canvas to JSON and pushes it into the CRDT store. Peers receive the update, deserialise it, and reload their canvas — all conflict-free via Yjs under the hood.
 
-<img width="1920" height="1080" alt="1763642557708-SCR-20251120-oacf" src="https://github.com/user-attachments/assets/20e48ef6-e609-4ea3-aeb9-3cb62859445f" />
+**4. Presence & Comments — just drop in the components**
 
-### Initial prompt response
+```tsx
+<VeltComments shadowDom={false} />
+<VeltCommentsSidebar shadowDom={false} />
+```
 
-<img width="1920" height="1080" alt="1763642568232-SCR-20251120-ognf" src="https://github.com/user-attachments/assets/926e278c-65b6-4bd0-bd10-1e5f42856d05" />
+That's it. No backend, no websocket boilerplate.
 
-### Responsive prompt
+---
 
-<img width="3200" height="1800" alt="SCR-20251126-kgkk" src="https://github.com/user-attachments/assets/01dbd23c-6834-403d-b731-f902c947f0e5" />
+## Project Structure
 
-### Responsive prompt response
+```
+pixframe/
+├── index.html
+├── vite.config.ts
+├── tailwind.config.js
+├── src/
+│   ├── App.tsx                        # VeltProvider, FabricProvider, user switcher
+│   ├── index.tsx                      # React entry point
+│   ├── index.css                      # Global styles
+│   ├── components/
+│   │   ├── TopBar.tsx                 # Toolbar — undo/redo, zoom, canvas preset, user switcher, export
+│   │   ├── LeftSidebar.tsx            # Icon bar — switch between panels
+│   │   ├── CanvasArea.tsx             # Fabric canvas + CRDT wiring + VeltCursor
+│   │   ├── LayersPanel.tsx            # Right panel — layer list, reorder, visibility, delete
+│   │   ├── ExportModal.tsx            # Export dialog — format, quality, scale
+│   │   ├── Toast.tsx                  # Ephemeral notifications
+│   │   └── panels/
+│   │       ├── TextPanel.tsx          # Font family, size, weight, style, color, spacing
+│   │       ├── ImagePanel.tsx         # Upload, opacity, flip, replace
+│   │       ├── BackgroundPanel.tsx    # Solid, gradient, image, pattern backgrounds
+│   │       ├── CropPanel.tsx          # Aspect-ratio crop controls
+│   │       └── CommentsPanel.tsx      # Velt comment mode toggle
+│   ├── contexts/
+│   │   ├── FabricContext.tsx          # Shared canvas ref + CRDT push refs
+│   │   └── EditorContext.tsx
+│   ├── hooks/
+│   │   └── useCollaborativeEditor.ts  # CRDT ↔ Fabric bridge (push + apply snapshot)
+│   ├── store/
+│   │   └── editorStore.ts             # Zustand — layers, history, theme, export settings
+│   └── types/
+│       ├── editor.ts                  # Layer types, canvas presets, Google Fonts list
+│       └── user.ts                    # User type for Velt identity
+└── .env                               # VITE_VELT_API_KEY
+```
 
-<img width="3200" height="1800" alt="SCR-20251126-kids" src="https://github.com/user-attachments/assets/b9ccec61-2c88-4959-ae6b-5fe579ab159c" />
+---
 
+## Getting Started
 
+### Prerequisites
+
+- Node.js 18+
+- A Velt API key from the [Velt Dashboard](https://console.velt.dev)
+
+### Installation
+
+```bash
+git clone https://github.com/Studio1HQ/Canva-style-design-editor-UI.git
+cd Canva-style-design-editor-UI
+npm install
+```
+
+### Environment Variables
+
+Create a `.env` file in the project root:
+
+```env
+VITE_VELT_API_KEY=your_velt_api_key_here
+```
+
+### Run the Dev Server
+
+```bash
+npm run dev
+```
+
+Open your browser at `http://localhost:5173`
+
+---
+
+## Testing Real-Time Collaboration
+
+1. Open **two browser windows** (or use an incognito window alongside your main browser)
+2. Navigate to `http://localhost:5173` in both
+3. Switch users using the avatar dropdown in the top bar:
+   - **Window A** — keep as Rick Sanchez (default)
+   - **Window B** — switch to Morty Smith
+4. Test real-time features:
+   - Add an image or text in one window → it appears in the other
+   - Move, resize, or rotate an object → positions sync live
+   - Change font, color, or background → updates reflect instantly
+   - Toggle layer visibility or reorder layers → synced across peers
+   - Click the comment icon and drop a comment pin → visible to both users
+   - Watch the presence avatars and cursor dots track each user
+
+---
+
+## User Switching
+
+Click the avatar in the top-right corner of the top bar to switch between:
+
+| User         | Email                  |
+| ------------ | ---------------------- |
+| Rick Sanchez | rick@rickandmorty.com  |
+| Morty Smith  | morty@rickandmorty.com |
+
+---
+
+## Keyboard Shortcuts
+
+| Shortcut               | Action                   |
+| ---------------------- | ------------------------ |
+| `Ctrl+Z`               | Undo                     |
+| `Ctrl+Shift+Z`         | Redo                     |
+| `Delete` / `Backspace` | Delete selected layer    |
+| `Ctrl+D`               | Duplicate selected layer |
+
+---
+
+## Technologies
+
+| Library                           | Purpose                                            |
+| --------------------------------- | -------------------------------------------------- |
+| React 18                          | UI framework                                       |
+| Vite 5                            | Build tool & dev server                            |
+| TypeScript                        | Type safety                                        |
+| Fabric.js 7                       | Canvas engine — objects, transforms, serialisation |
+| Velt SDK (`@veltdev/react`)       | Presence, comments, notifications                  |
+| Velt CRDT (`@veltdev/crdt-react`) | Conflict-free canvas state sync (Yjs)              |
+| Zustand                           | Global editor state — layers, history, theme       |
+| Tailwind CSS                      | Utility-first styling                              |
+| react-colorful                    | Hex color pickers                                  |
+| @dnd-kit                          | Drag-and-drop layer reordering                     |
+| jsPDF                             | PDF export                                         |
+| heic2any                          | HEIC/HEIF image conversion                         |
+| lucide-react                      | Icons                                              |
+
+---
+
+## Architecture
+
+### State Management
+
+Zustand (`editorStore`) owns all editor state:
+
+- Active canvas size and zoom level
+- `LayerMeta[]` — the ordered list of layers with id, type, name, visibility
+- Undo/redo history stack (up to 50 entries)
+- Active panel, export settings, toast state, theme
+
+### Real-Time Collaboration
+
+`useCollaborativeEditor` (in `hooks/`) bridges Fabric.js and the Velt CRDT store:
+
+- **Push**: On any canvas mutation, serialise with `canvas.toObject(["data"])` and push `{ json, layers, canvasSize }` to the CRDT store (debounced 150ms for continuous changes like dragging; immediate for discrete actions like delete)
+- **Apply**: When the CRDT store delivers a remote snapshot, set `isRemoteUpdate = true`, call `canvas.loadFromJSON`, restore layer visibility, and update Zustand — then clear the flag after two animation frames so React effects don't echo the change back
+
+### Component Hierarchy
+
+```
+VeltProvider
+  └── FabricProvider
+        └── AppContent
+              ├── VeltComments          ← comment pins over the whole canvas
+              ├── VeltCommentsSidebar   ← slide-in sidebar
+              ├── TopBar                ← undo/redo, zoom, preset, user switcher, export
+              ├── LeftSidebar           ← panel switcher (Text, Image, Background, Crop, Comments)
+              ├── CanvasArea            ← Fabric canvas + VeltCursor + CRDT hook
+              │     └── useCollaborativeEditor
+              ├── LayersPanel           ← layer list, drag-to-reorder, visibility, delete
+              ├── ExportModal
+              └── Toast
+```
