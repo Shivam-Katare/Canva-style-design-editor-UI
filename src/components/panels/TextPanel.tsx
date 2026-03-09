@@ -98,6 +98,7 @@ export const TextPanel: React.FC = () => {
     canvasRef.current!.renderAll();
     const json = JSON.stringify((canvasRef.current as any).toObject(["data"]));
     pushHistory(json);
+    pushCanvasStateRef.current?.(json);
   };
 
   const addText = () => {

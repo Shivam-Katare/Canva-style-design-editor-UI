@@ -109,6 +109,11 @@ export const ImagePanel: React.FC = () => {
     if (selectedObj) {
       selectedObj.set("opacity", val / 100);
       canvasRef.current!.renderAll();
+      const json = JSON.stringify(
+        (canvasRef.current as any).toObject(["data"]),
+      );
+      pushHistory(json);
+      pushCanvasStateRef.current?.(json);
     }
   };
 
@@ -119,6 +124,7 @@ export const ImagePanel: React.FC = () => {
     canvasRef.current!.renderAll();
     const json = JSON.stringify((canvasRef.current as any).toObject(["data"]));
     pushHistory(json);
+    pushCanvasStateImmediateRef.current?.(json);
   };
 
   const handleReplace = () => fileRef.current?.click();

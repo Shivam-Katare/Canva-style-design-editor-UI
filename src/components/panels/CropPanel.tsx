@@ -14,7 +14,7 @@ const ASPECT_PRESETS = [
 
 export const CropPanel: React.FC = () => {
   const { theme, selectedLayerId, pushHistory, showToast } = useEditorStore();
-  const { canvasRef } = useFabric();
+  const { canvasRef, pushCanvasStateImmediateRef } = useFabric();
   const [aspect, setAspect] = useState<number | null>(null);
 
   const dark = theme === "dark";
@@ -71,6 +71,7 @@ export const CropPanel: React.FC = () => {
     canvas.renderAll();
     const json = JSON.stringify((canvas as any).toObject(["data"]));
     pushHistory(json);
+    pushCanvasStateImmediateRef.current?.(json);
     showToast("Crop applied");
   };
 
